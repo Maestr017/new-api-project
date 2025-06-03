@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Pytest
+.cache/
+*.cover
+*.log
+.coveragerc
+nosetests.xml
+coverage.xml
+*.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Type hinting
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Docker
+*.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Environment variables
+.env
+*.env
+
+# Miscellaneous
+*.DS_Store
+*.egg-info/
+dist/
+build/
+*.egg
