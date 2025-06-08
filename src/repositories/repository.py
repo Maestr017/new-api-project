@@ -2,7 +2,8 @@ from sqlalchemy import select, asc, desc
 from typing import Optional
 from sqlalchemy.sql import Select
 
-from src.core.database import new_session, TaskOrm
+from src.core.database import new_session
+from src.models.tasks import TaskOrm
 from src.schemas.schemas import STaskAdd, STask
 
 

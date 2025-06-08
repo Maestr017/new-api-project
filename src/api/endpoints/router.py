@@ -127,4 +127,3 @@ async def delete_task(task_id: int) -> STaskDelete:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error has occurred. Try again later."
         )
-
