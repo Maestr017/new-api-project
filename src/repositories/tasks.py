@@ -3,17 +3,17 @@ from typing import Optional
 from sqlalchemy.sql import Select
 
 from src.core.database import new_session
-from src.models.tasks import TaskOrm
-from src.schemas.schemas import STaskAdd, STask
+from src.models.models import TaskOrm
+from src.schemas.tasks import STaskAdd, STask
 
 
 class TaskRepository:
     @classmethod
-    async def add_one(cls, data: STaskAdd) -> int:
+    async def add_one(cls, data: STaskAdd, owner_id: int) -> int:
         async with new_session() as session:
             task_dict = data.model_dump()
 
-            task = TaskOrm(**task_dict)
+            task = TaskOrm(**task_dict, owner_id=owner_id)
             session.add(task)
             await session.flush()
             await session.commit()
@@ -22,6 +22,7 @@ class TaskRepository:
     @classmethod
     async def find_all(
             cls,
+            owner_id: int,
             skip: int = 0,
             limit: int = 10,
             name_contains: Optional[str] = None,
@@ -29,7 +30,7 @@ class TaskRepository:
             sort_desc: bool = False
     ) -> list[STask]:
         async with new_session() as session:
-            query: Select = select(TaskOrm)
+            query: Select = select(TaskOrm).where(TaskOrm.owner_id == owner_id)
 
             if name_contains:
                 query = query.where(TaskOrm.name.ilike(f"%{name_contains}%"))
@@ -49,9 +50,9 @@ class TaskRepository:
             return task_schemas
 
     @classmethod
-    async def update_one(cls, task_id: int, data: STaskAdd) -> STask:
+    async def update_one(cls, task_id: int, data: STaskAdd, owner_id: int) -> STask:
         async with new_session() as session:
-            query = select(TaskOrm).where(TaskOrm.id == task_id)
+            query = select(TaskOrm).where(TaskOrm.id == task_id, TaskOrm.owner_id == owner_id)
             result = await session.execute(query)
             task = result.scalar_one_or_none()
 
@@ -66,9 +67,9 @@ class TaskRepository:
             return STask.model_validate(task)
 
     @classmethod
-    async def delete_one(cls, task_id: int) -> dict:
+    async def delete_one(cls, task_id: int, owner_id: int) -> dict:
         async with new_session() as session:
-            query = select(TaskOrm).where(TaskOrm.id == task_id)
+            query = select(TaskOrm).where(TaskOrm.id == task_id, TaskOrm.owner_id == owner_id)
             result = await session.execute(query)
             task = result.scalar_one_or_none()
 
@@ -78,3 +79,13 @@ class TaskRepository:
             await session.delete(task)
             await session.commit()
             return {"ok": True, "message": f"Task {task_id} deleted"}
+
+    @classmethod
+    async def get_by_id(cls, task_id: int, owner_id: int) -> STask | None:
+        async with new_session() as session:
+            query = select(TaskOrm).where(TaskOrm.id == task_id, TaskOrm.owner_id == owner_id)
+            result = await session.execute(query)
+            task = result.scalar_one_or_none()
+            if task is None:
+                return None
+            return STask.model_validate(task)

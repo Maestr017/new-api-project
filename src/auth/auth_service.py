@@ -1,4 +1,5 @@
 import jwt
+import bcrypt
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Request, HTTPException
 from datetime import datetime, timedelta
@@ -13,14 +14,16 @@ class AuthService:
     def __init__(self):
         self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
-    def create_token(self, email: str) -> str:
+    @staticmethod
+    def create_token(email: str) -> str:
         payload = {
             "sub": email,
             "exp": datetime.utcnow() + timedelta(minutes=JWT_EXP_MINUTES)
         }
         return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-    def decode_token(self, token: str) -> dict:
+    @staticmethod
+    def decode_token(token: str) -> dict:
         try:
             return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         except jwt.ExpiredSignatureError:
@@ -28,11 +31,21 @@ class AuthService:
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=401, detail="Invalid token")
 
-    def get_token_from_cookie(self, request: Request) -> str:
+    @staticmethod
+    def get_token_from_cookie(request: Request) -> str:
         token = request.cookies.get("access_token")
         if not token:
             raise HTTPException(status_code=401, detail="Not authenticated")
         return token
+
+    @staticmethod
+    def hash_password(password: str) -> str:
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        return hashed_password.decode('utf-8')
+
+    @staticmethod
+    def verify_password(password: str, hashed_password: str) -> bool:
+        return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 auth_service = AuthService()

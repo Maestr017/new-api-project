@@ -1,22 +1,22 @@
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
-import bcrypt
+from typing import Annotated
 
 from src.schemas.users import Token, UserCreate
 from src.auth.auth_service import auth_service
 from src.repositories.users import UserRepository
 
 
-router = APIRouter()
+router = APIRouter(tags=['Пользователи'])
 
 
 @router.post("/register")
-async def register_user(user: UserCreate):
+async def register_user(user: Annotated[UserCreate, Depends()]):
     existing = await UserRepository.get_by_email(user.email)
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    hashed = bcrypt.hashpw(user.password.encode(), bcrypt.gensalt()).decode()
+    hashed = auth_service.hash_password(user.password)
     await UserRepository.create_user(user.email, hashed)
     return {"msg": "User registered successfully"}
 
@@ -24,7 +24,7 @@ async def register_user(user: UserCreate):
 @router.post("/login", response_model=Token)
 async def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
     user = await UserRepository.get_by_email(form_data.username)
-    if not user or not bcrypt.checkpw(form_data.password.encode(), user.hashed_password.encode()):
+    if not user or not auth_service.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
 
     token = auth_service.create_token(user.email)
