@@ -18,8 +18,8 @@ RESTful API для управления задачами с поддержкой
 ## Установка
 
 ```bash
-git clone https://github.com/yourusername/task-manager-api.git
-cd task-manager-api
+git clone https://github.com/Maestr017/new-api-project.git
+cd new-apiproject
 python -m venv venv
 source venv/bin/activate  # Linux/macOS
 venv\Scripts\activate     # Windows
