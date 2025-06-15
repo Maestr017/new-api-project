@@ -14,7 +14,7 @@ from src.api.endpoints.users import router as users_router
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-TEST_DATABASE_URL = "postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db"
+TEST_DATABASE_URL = "postgresql+asyncpg://test_user:test_pass@localhost:1234/test_db"
 
 
 @pytest_asyncio.fixture
