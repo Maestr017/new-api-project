@@ -160,3 +160,5 @@ async def delete_task(
         logger.error(f"Unexpected error when deleting task {task_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="An unexpected error has occurred. Try again later.")
+
+# added some changes
