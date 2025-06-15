@@ -135,7 +135,6 @@ async def delete_task(
     payload = AuthService.decode_token(token)
     user_email = payload.get("sub")
     if not user_email:
-        logger.error(f"No cookie")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     user = await UserRepository.get_by_email(user_email, session)
