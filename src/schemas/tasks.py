@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class STaskAdd(BaseModel):
-    name: str = Field(..., min_length=3, max_length=50)
+    title: str = Field(..., min_length=3, max_length=50)
     description: Optional[str] = Field(None, max_length=200)
 
 
@@ -15,7 +15,6 @@ class STask(STaskAdd):
 
 
 class STaskId(BaseModel):
-    ok: bool = True
     task_id: int
 
 

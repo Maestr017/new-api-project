@@ -1,75 +1,68 @@
-import pytest
-from jose import jwt
-from sqlalchemy.ext.asyncio import create_async_engine
-from datetime import datetime, timedelta
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from httpx import AsyncClient, ASGITransport
+import pytest_asyncio
+import sys
+import asyncio
+from fastapi import FastAPI
+from sqlalchemy.pool import NullPool
 
-from src.schemas.users import UserCreate
-from src.schemas.tasks import STaskAdd
-from src.models.models import UserOrm, Model
-from src.repositories.users import UserRepository
-from src.repositories.tasks import TaskRepository
-from src.auth.auth_service import auth_service
-from src.core.config import settings
+from src.models.models import Model
+from src.auth.middleware import AuthMiddleware
+from src.api.endpoints.tasks import router as tasks_router
+from src.api.endpoints.users import router as users_router
 
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 TEST_DATABASE_URL = "postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db"
 
 
-@pytest.fixture(scope="session", autouse=True)
-async def create_test_db():
-    engine = create_async_engine(TEST_DATABASE_URL)
+@pytest_asyncio.fixture
+async def test_engine():
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True, poolclass=NullPool)
     async with engine.begin() as conn:
         await conn.run_sync(Model.metadata.create_all)
-    yield
+    yield engine
     async with engine.begin() as conn:
         await conn.run_sync(Model.metadata.drop_all)
+    await engine.dispose()
 
 
-@pytest.fixture
-def test_user_data():
-    return UserCreate(
-        email="test@example.com",
-        password="securepassword123",
-        is_active=True,
-        is_superuser=False,
-        is_verified=False
-    )
+async def get_async_session():
+    raise RuntimeError("Dependency must be overridden")
 
 
-@pytest.fixture
-async def created_user(test_user_data: UserCreate):
-    existing = await UserRepository.get_by_email(test_user_data.email)
-    if existing:
-        await UserRepository.delete_by_email(test_user_data.email)
+def get_app(session_dependency) -> FastAPI:
+    app = FastAPI()
 
-    hashed_password = auth_service.hash_password(test_user_data.password)
-    user_id = await UserRepository.create_user(test_user_data.email, hashed_password)
-    user = await UserRepository.get_by_email(test_user_data.email)
-    return user
+    from src.core.database import get_session
+    app.dependency_overrides[get_session] = session_dependency
 
+    exempt_paths = [
+        "/",
+        "/login",
+        "/register",
+        "/openapi.json",
+        "/docs",
+        "/redoc",
+    ]
+    app.add_middleware(AuthMiddleware, exempt_paths=exempt_paths)
 
-@pytest.fixture
-async def access_token(created_user: UserOrm) -> str:
-    return auth_service.create_token(created_user.email)
+    app.include_router(tasks_router)
+    app.include_router(users_router)
 
-
-@pytest.fixture
-def expired_token(created_user: UserOrm) -> str:
-    return jwt.encode(
-        {"sub": created_user.email, "exp": datetime.utcnow() - timedelta(seconds=1)},
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM
-    )
+    return app
 
 
-@pytest.fixture
-def test_task_data() -> STaskAdd:
-    return STaskAdd(name="Test Task", description="Test Description")
+@pytest_asyncio.fixture
+async def async_client(test_engine):
+    async_session_local = async_sessionmaker(test_engine, expire_on_commit=False)
 
+    async def override_get_async_session():
+        async with async_session_local() as session:
+            yield session
 
-@pytest.fixture
-async def created_task(test_task_data: STaskAdd, created_user: UserOrm):
-    task_id = await TaskRepository.add_one(test_task_data, owner_id=created_user.id)
-    task = await TaskRepository.get_by_id(task_id, owner_id=created_user.id)
-    yield task
-    await TaskRepository.delete_one(task_id, owner_id=created_user.id)
+    app = get_app(session_dependency=override_get_async_session)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        yield client

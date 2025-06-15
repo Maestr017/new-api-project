@@ -15,9 +15,9 @@ class AuthService:
         self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
     @staticmethod
-    def create_token(email: str) -> str:
+    def create_token(user_email: str) -> str:
         payload = {
-            "sub": email,
+            "sub": user_email,
             "exp": datetime.utcnow() + timedelta(minutes=JWT_EXP_MINUTES)
         }
         return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -34,8 +34,6 @@ class AuthService:
     @staticmethod
     def get_token_from_cookie(request: Request) -> str:
         token = request.cookies.get("access_token")
-        if not token:
-            raise HTTPException(status_code=401, detail="Not authenticated")
         return token
 
     @staticmethod

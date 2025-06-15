@@ -1,36 +1,35 @@
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.database import new_session
 from src.models.models import UserOrm
 
 
 class UserRepository:
     @classmethod
-    async def get_by_email(cls, email: str) -> UserOrm | None:
-        async with new_session() as session:
-            result = await session.execute(select(UserOrm).where(UserOrm.email == email))
-            return result.scalar_one_or_none()
+    async def get_by_email(cls, user_email: str, session: AsyncSession) -> UserOrm | None:
+        result = await session.execute(
+            select(UserOrm).where(UserOrm.user_email == user_email)
+        )
+        return result.scalar_one_or_none()
 
     @classmethod
-    async def create_user(cls, email: str, hashed_password: str) -> UserOrm:
-        async with new_session() as session:
-            user = UserOrm(email=email, hashed_password=hashed_password)
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-            return user
+    async def create_user(cls, user_email: str, hashed_password: str, session: AsyncSession) -> UserOrm:
+        user = UserOrm(user_email=user_email, hashed_password=hashed_password)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
 
     @classmethod
-    async def delete_by_email(cls, email: str) -> bool:
-        async with new_session() as session:
-            user = await session.execute(
-                select(UserOrm).where(UserOrm.email == email)
-            )
-            user = user.scalar_one_or_none()
+    async def delete_by_email(cls, user_email: str, session: AsyncSession) -> bool:
+        result = await session.execute(
+            select(UserOrm).where(UserOrm.user_email == user_email)
+        )
+        user = result.scalar_one_or_none()
 
-            if not user:
-                return False
+        if not user:
+            return False
 
-            await session.delete(user)
-            await session.commit()
-            return True
+        await session.delete(user)
+        await session.commit()
+        return True

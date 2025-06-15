@@ -1,11 +1,15 @@
-from typing import Annotated, List, Optional, Literal
-from fastapi import APIRouter, HTTPException, status, Query, Depends, Request
+from typing import List, Optional, Literal
+from fastapi import APIRouter, HTTPException, status, Query, Depends
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.logger import logger
 from src.repositories.tasks import TaskRepository
 from src.schemas.tasks import STaskAdd, STask, STaskId, STaskDelete
-from src.api.dependencies import get_current_user, get_user_by_email
+from src.api.dependencies import get_current_user
+from src.repositories.users import UserRepository
+from src.auth.auth_service import AuthService
+from src.core.database import get_session
 
 
 router = APIRouter(
@@ -14,20 +18,27 @@ router = APIRouter(
 )
 
 
-@router.post("",  response_model=STaskId)
+@router.post("")
 async def add_task(
-        task: Annotated[STaskAdd, Depends()],
-        request: Request
+        title: str = Query(...),
+        description: Optional[str] = Query(None),
+        token: str = Depends(AuthService.get_token_from_cookie),
+        session: AsyncSession = Depends(get_session)
 ) -> STaskId:
-    user_email = getattr(request.state, "user_email", None)
+    payload = AuthService.decode_token(token)
+    user_email = payload.get("sub")
     if not user_email:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    current_user = await get_user_by_email(user_email)
+    user = await UserRepository.get_by_email(user_email, session)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    logger.info(f"Received task: {task} from user {current_user.email}")
+    task_data = STaskAdd(title=title, description=description)
+
+    logger.info(f"Received task: {task_data} from user {user.user_email}")
     try:
-        task_id = await TaskRepository.add_one(task, owner_id=current_user.id)
+        task_id = await TaskRepository.add_one(task_data, owner_id=user.id, session=session)
         logger.info("Creating new task")
         return STaskId(task_id=task_id)
     except IntegrityError as e:
@@ -55,11 +66,13 @@ async def get_tasks(
             description="Поле для сортировки"
         ),
         sort_desc: bool = Query(False, description="Сортировать по убыванию"),
-        current_user=Depends(get_current_user)
+        current_user=Depends(get_current_user),
+        session: AsyncSession = Depends(get_session)
 ) -> List[STask]:
     try:
         tasks = await TaskRepository.find_all(
             owner_id=current_user.id,
+            session=session,
             skip=skip,
             limit=limit,
             name_contains=name_contains,
@@ -78,17 +91,24 @@ async def get_tasks(
 @router.put("/{task_id}", response_model=STask)
 async def update_task(
         task_id: int,
-        task_data: Annotated[STaskAdd, Depends()],
-        request: Request
+        title: str = Query(...),
+        description: Optional[str] = Query(None),
+        token: str = Depends(AuthService.get_token_from_cookie),
+        session: AsyncSession = Depends(get_session)
 ) -> STask:
-    user_email = getattr(request.state, "user_email", None)
+    payload = AuthService.decode_token(token)
+    user_email = payload.get("sub")
     if not user_email:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    current_user = await get_user_by_email(user_email)
+    user = await UserRepository.get_by_email(user_email, session)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    task_data = STaskAdd(title=title, description=description)
 
     try:
-        updated_task = await TaskRepository.update_one(task_id, task_data, owner_id=current_user.id)
+        updated_task = await TaskRepository.update_one(task_id, task_data, owner_id=user.id, session=session)
         return updated_task
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -109,16 +129,21 @@ async def update_task(
 @router.delete("/{task_id}", response_model=STaskDelete)
 async def delete_task(
         task_id: int,
-        request: Request
+        token: str = Depends(AuthService.get_token_from_cookie),
+        session: AsyncSession = Depends(get_session)
 ) -> STaskDelete:
-    user_email = getattr(request.state, "user_email", None)
+    payload = AuthService.decode_token(token)
+    user_email = payload.get("sub")
     if not user_email:
+        logger.error(f"No cookie")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    current_user = await get_user_by_email(user_email)
+    user = await UserRepository.get_by_email(user_email, session)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
     try:
-        result = await TaskRepository.delete_one(task_id, owner_id=current_user.id)
+        result = await TaskRepository.delete_one(task_id, owner_id=user.id, session=session)
         logger.info(f"Task {task_id} deleted successfully: {result}")
         return STaskDelete(**result)
     except ValueError as e:
