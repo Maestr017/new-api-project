@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build-and-test:
+  build-test-and-login-to-dockerhub:
     runs-on: ubuntu-latest
 
     services:
