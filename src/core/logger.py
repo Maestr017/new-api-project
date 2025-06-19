@@ -17,7 +17,7 @@ def setup_logging(
     with open(path, 'rt') as f:
         config = yaml.safe_load(f)
 
-    log_dir = os.getenv(env_key, '/src/logs')
+    log_dir = os.getenv(env_key, './logs')
     os.makedirs(log_dir, exist_ok=True)
 
     log_file_path = os.path.join(log_dir, 'app.log')

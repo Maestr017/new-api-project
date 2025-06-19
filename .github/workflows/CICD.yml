@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -42,6 +42,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install flake8 pytest pytest-asyncio
+
+      - name: Prepare logs directory
+        run: mkdir -p ./logs
+        env:
+          LOG_DIR: ./logs
 
       - name: Run flake8
         run: |
