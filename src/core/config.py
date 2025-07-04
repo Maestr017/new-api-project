@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = Field(..., json_schema_extra={"env": "POSTGRES_USER"})
     POSTGRES_PASSWORD: str = Field(..., json_schema_extra={"env": "POSTGRES_PASSWORD"})
 
-    JWT_SECRET: Optional[str] = Field(..., json_schema_extra={"env": "JWT_SECRET"})
+    JWT_SECRET: Optional[str] = Field(None, json_schema_extra={"env": "JWT_SECRET"})
 
     @property
     def database_url(self) -> str:
