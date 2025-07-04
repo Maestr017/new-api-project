@@ -3,9 +3,12 @@ import bcrypt
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Request, HTTPException
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
-JWT_SECRET = "your_jwt_secret_key"
+JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXP_MINUTES = 60
 
